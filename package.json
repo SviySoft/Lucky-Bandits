@@ -1,0 +1,33 @@
+{
+  "name": "lucky-bandits-slot",
+  "private": true,
+  "version": "1.0.0",
+  "description": "LUCKY BANDITS \u2014 premium HTML5 video slot for the SviySoft Casino Platform",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "simulate": "tsx src/simulation/run-simulation.ts",
+    "typecheck": "tsc --noEmit",
+    "assets": "node tools/render-assets.mjs"
+  },
+  "dependencies": {
+    "gsap": "^3.12.5",
+    "pixi.js": "^8.6.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "sharp": "^0.35.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "SviySoft"
+}

@@ -1,0 +1,163 @@
+/* eslint-disable no-console */
+/**
+ * Builds the game screen straight out of the reference render.
+ *
+ * The reference is cut into a "scene plate": everything painted stays (hall, machine,
+ * crew, money, panels, bar), the reel window is knocked out to transparent so the live
+ * reels show through it, and every painted *value* is erased so the live one can be drawn
+ * in its place. The coordinates of all those regions are exported for the runtime.
+ */
+import sharp from 'sharp';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
+const SRC = process.argv[2] ?? '/Users/sviysoft/Desktop/42342.png';
+const OUT = 'public/assets/lucky-bandits/ui';
+const SRC_OUT = 'art/source';
+const DEBUG = process.argv.includes('--debug');
+
+const meta = await sharp(SRC).metadata();
+const W = meta.width;
+const H = meta.height;
+
+/** all regions in reference pixels (1536 x 1024) */
+export const LAYOUT = {
+  reference: { width: W, height: H },
+  // the reel window — knocked through the plate
+  window: { x: 310, y: 190, w: 920, h: 534 },
+  // painted values that the live game must own
+  erase: [
+    { id: 'balance', x: 18, y: 40, w: 190, h: 44, fill: 'sample' },
+    { id: 'jp-mega', x: 74, y: 225, w: 150, h: 31, fill: 'sample' },
+    { id: 'jp-major', x: 74, y: 293, w: 150, h: 31, fill: 'sample' },
+    { id: 'jp-minor', x: 74, y: 357, w: 150, h: 27, fill: 'sample' },
+    { id: 'jp-mini', x: 74, y: 415, w: 150, h: 27, fill: 'sample' },
+    { id: 'freespins', x: 1322, y: 206, w: 160, h: 62, fill: 'sample' },
+    { id: 'message', x: 520, y: 733, w: 500, h: 40, fill: 'sample' },
+    { id: 'bet', x: 348, y: 862, w: 118, h: 40, fill: 'sample' },
+    { id: 'win', x: 1040, y: 862, w: 210, h: 46, fill: 'sample' },
+    { id: 'clock', x: 1442, y: 988, w: 86, h: 30, fill: 'sample' },
+  ],
+  // interactive zones laid over the painted controls
+  hits: {
+    menu: { x: 92, y: 826, w: 92, h: 92 },
+    paytable: { x: 192, y: 826, w: 100, h: 92 },
+    betMinus: { x: 312, y: 866, w: 40, h: 40 },
+    betPlus: { x: 462, y: 866, w: 40, h: 40 },
+    betValue: { x: 348, y: 838, w: 118, h: 66 },
+    autoplay: { x: 524, y: 826, w: 118, h: 92 },
+    spin: { x: 676, y: 800, w: 158, h: 158 },
+    turbo: { x: 878, y: 826, w: 116, h: 92 },
+    sound: { x: 1258, y: 18, w: 56, h: 56 },
+    fullscreen: { x: 1326, y: 18, w: 56, h: 56 },
+    info: { x: 1394, y: 18, w: 56, h: 56 },
+    burger: { x: 1462, y: 18, w: 56, h: 56 },
+  },
+};
+
+const { data, info } = await sharp(SRC).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+const C = info.channels;
+const px = Buffer.from(data);
+
+/** average colour just outside a rect — used to paint over erased text */
+function sampleAround(r) {
+  let rs = 0;
+  let gs = 0;
+  let bs = 0;
+  let n = 0;
+  const take = (x, y) => {
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    const i = (y * W + x) * C;
+    rs += px[i];
+    gs += px[i + 1];
+    bs += px[i + 2];
+    n++;
+  };
+  for (let x = r.x; x < r.x + r.w; x += 2) {
+    take(x, r.y - 6);
+    take(x, r.y + r.h + 6);
+  }
+  for (let y = r.y; y < r.y + r.h; y += 2) {
+    take(r.x - 8, y);
+    take(r.x + r.w + 8, y);
+  }
+  return n ? [Math.round(rs / n), Math.round(gs / n), Math.round(bs / n)] : [20, 8, 26];
+}
+
+for (const r of LAYOUT.erase) {
+  const [cr, cg, cb] = sampleAround(r);
+  for (let y = r.y; y < r.y + r.h; y++) {
+    for (let x = r.x; x < r.x + r.w; x++) {
+      const i = (y * W + x) * C;
+      // feather the patch so it blends with the panel it sits on
+      const fx = Math.min(1, Math.min(x - r.x, r.x + r.w - x) / 10);
+      const fy = Math.min(1, Math.min(y - r.y, r.y + r.h - y) / 8);
+      const k = Math.min(fx, fy);
+      px[i] = px[i] * (1 - k) + cr * k;
+      px[i + 1] = px[i + 1] * (1 - k) + cg * k;
+      px[i + 2] = px[i + 2] * (1 - k) + cb * k;
+    }
+  }
+}
+
+// knock the reel window through to transparency (rounded corners like the machine)
+const win = LAYOUT.window;
+const radius = 26;
+for (let y = win.y; y < win.y + win.h; y++) {
+  for (let x = win.x; x < win.x + win.w; x++) {
+    const dx = Math.min(x - win.x, win.x + win.w - 1 - x);
+    const dy = Math.min(y - win.y, win.y + win.h - 1 - y);
+    let inside = true;
+    if (dx < radius && dy < radius) {
+      const ox = radius - dx;
+      const oy = radius - dy;
+      inside = ox * ox + oy * oy <= radius * radius;
+    }
+    if (inside) px[(y * W + x) * C + 3] = 0;
+  }
+}
+
+await mkdir(OUT, { recursive: true });
+const plate = path.join(SRC_OUT, 'png', 'lucky-bandits', 'ui', 'scene-plate.png');
+await mkdir(path.dirname(plate), { recursive: true });
+await sharp(px, { raw: { width: W, height: H, channels: C } })
+  .png({ compressionLevel: 9 })
+  .toFile(plate);
+await sharp(plate).webp({ quality: 94, alphaQuality: 100 }).toFile(path.join(OUT, 'scene-plate.webp'));
+await writeFile(path.join(SRC_OUT, 'scene-layout.json'), JSON.stringify(LAYOUT, null, 2));
+
+const ts = `/* generated by tools/extract-scene.mjs — do not edit by hand */
+export interface SceneRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** every coordinate below is in reference pixels (${W} x ${H}) */
+export const SCENE_LAYOUT = ${JSON.stringify(
+  { reference: LAYOUT.reference, window: LAYOUT.window, hits: LAYOUT.hits, values: Object.fromEntries(LAYOUT.erase.map((e) => [e.id, { x: e.x, y: e.y, w: e.w, h: e.h }])) },
+  null,
+  2,
+)} as const;
+`;
+await writeFile('src/render/sceneLayout.ts', ts);
+
+if (DEBUG) {
+  const boxes = [
+    `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="none" stroke="#00ff88" stroke-width="4"/>`,
+    ...LAYOUT.erase.map(
+      (r) => `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="none" stroke="#ff3366" stroke-width="3"/>`,
+    ),
+    ...Object.values(LAYOUT.hits).map(
+      (r) => `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="none" stroke="#33aaff" stroke-width="3"/>`,
+    ),
+  ].join('');
+  await sharp(SRC)
+    .composite([{ input: Buffer.from(`<svg width="${W}" height="${H}">${boxes}</svg>`), top: 0, left: 0 }])
+    .png()
+    .toFile('art/source/scene-layout-debug.png');
+  console.log('debug overlay -> art/source/scene-layout-debug.png');
+}
+
+console.log(`scene plate -> ${plate}  (${W}x${H})`);

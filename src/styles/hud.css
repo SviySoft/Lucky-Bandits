@@ -1,0 +1,248 @@
+/* ============ LUCKY BANDITS — interface anchored to the reference plate ============
+   Every control sits exactly on the one painted in the scene: the plate supplies the
+   look, these elements supply the behaviour and the live values.
+   --px / --py / --ps are published by the renderer (plate origin and scale). */
+
+.scene-ui {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  font-family: var(--font-ui);
+}
+
+.scene-ui > * {
+  pointer-events: auto;
+}
+
+/* ------------------------------- live values ------------------------------- */
+.ui-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+  line-height: 1;
+}
+
+.ui-value--left {
+  justify-content: flex-start;
+}
+
+.ui-value--dim {
+  color: #e6d9ff;
+  opacity: 0.85;
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+
+.ui-value.is-hot {
+  animation: value-pop 0.5s ease;
+}
+
+@keyframes value-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+.ui-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #ffd257;
+  text-shadow: 0 0 14px rgba(255, 190, 60, 0.55), 0 2px 6px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.ui-freespins {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: calc(10px * var(--ps));
+  pointer-events: none;
+  line-height: 1;
+}
+
+.ui-freespins b {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  color: #ffd257;
+  text-shadow: 0 0 16px rgba(255, 190, 60, 0.7);
+}
+
+.ui-freespins span {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  color: #ffffff;
+  opacity: 0.9;
+}
+
+.ui-freespins.is-live b {
+  animation: fs-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes fs-pulse {
+  0%, 100% { text-shadow: 0 0 16px rgba(255, 190, 60, 0.7); }
+  50% { text-shadow: 0 0 30px rgba(255, 210, 87, 1); }
+}
+
+/* ------------------------- invisible interaction layer --------------------- */
+.hit {
+  background: transparent;
+  border: none;
+  padding: 0;
+  border-radius: calc(14px * var(--ps));
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+.hit:hover:not(:disabled) {
+  background: rgba(255, 226, 160, 0.14);
+  box-shadow: 0 0 calc(18px * var(--ps)) rgba(255, 200, 90, 0.35);
+}
+
+.hit:active:not(:disabled) {
+  transform: scale(0.94);
+  background: rgba(255, 226, 160, 0.22);
+}
+
+.hit:disabled {
+  cursor: not-allowed;
+}
+
+.hit.is-on {
+  background: rgba(124, 232, 255, 0.16);
+  box-shadow: 0 0 calc(20px * var(--ps)) rgba(124, 232, 255, 0.45);
+}
+
+.hit--round,
+.hit--circle {
+  border-radius: 50%;
+}
+
+.hit--circle.is-muted::after {
+  content: '';
+  position: absolute;
+  inset: 22%;
+  border-top: calc(3px * var(--ps)) solid #ff6b52;
+  transform: rotate(-45deg);
+  transform-origin: center;
+}
+
+.hit--circle {
+  position: absolute;
+}
+
+/* the painted SPIN button gets a live state on top of it */
+.hit--spin {
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.hit--spin:hover:not(:disabled) {
+  background: rgba(255, 226, 160, 0.1);
+  box-shadow: 0 0 calc(34px * var(--ps)) rgba(255, 90, 220, 0.55);
+}
+
+.hit--spin.is-spinning {
+  background: rgba(12, 4, 18, 0.82);
+  box-shadow: 0 0 calc(26px * var(--ps)) rgba(160, 60, 255, 0.5);
+}
+
+.spin-state {
+  display: grid;
+  place-items: center;
+  gap: calc(2px * var(--ps));
+  color: #ffe9c4;
+  font-family: var(--font-display);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.spin-state svg {
+  width: calc(30px * var(--ps));
+  height: calc(30px * var(--ps));
+}
+
+.spin-wait {
+  position: absolute;
+  inset: calc(10px * var(--ps));
+  border-radius: 50%;
+  border: calc(4px * var(--ps)) solid rgba(255, 210, 87, 0.25);
+  border-top-color: rgba(255, 210, 87, 0.9);
+  animation: spin-wait 0.9s linear infinite;
+}
+
+@keyframes spin-wait {
+  to { transform: rotate(360deg); }
+}
+
+.autoplay-badge {
+  position: absolute;
+  top: calc(6px * var(--ps));
+  right: calc(6px * var(--ps));
+  min-width: calc(30px * var(--ps));
+  height: calc(30px * var(--ps));
+  padding: 0 calc(7px * var(--ps));
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff8f6b, #d63a1e);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  border: calc(2px * var(--ps)) solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 calc(12px * var(--ps)) rgba(255, 90, 40, 0.8);
+}
+
+.error-toast {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(120, 16, 16, 0.96), rgba(60, 6, 6, 0.96));
+  border: 2px solid rgba(255, 120, 90, 0.6);
+  color: #ffdcd0;
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.6);
+  z-index: 5;
+}
+
+/* a 3:2 cabinet does not fit a tall phone: ask for landscape, keep playing meanwhile */
+.rotate-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(20, 6, 26, 0.92);
+  border: 2px solid rgba(255, 210, 87, 0.6);
+  color: #ffe9c4;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+
+@media (orientation: portrait) {
+  .rotate-hint {
+    display: flex;
+  }
+}

@@ -1,0 +1,38 @@
+# dependencies & build output
+node_modules/
+dist/
+
+# environment
+.env
+.env.*
+!.env.example
+
+# caches
+.cache/
+.vite/
+.art-cache/
+coverage/
+temp/
+tmp/
+
+# os / editor junk
+.DS_Store
+__MACOSX/
+._*
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
+
+# logs & scratch
+*.log
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+
+# release packages
+release/
+*.zip
